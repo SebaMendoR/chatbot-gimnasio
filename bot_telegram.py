@@ -2,11 +2,12 @@
 # Conector: traduce entre Telegram y el cerebro del bot.
 
 import os
+
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-from cerebro import responder
+from cerebro import responder, TEMAS_QUE_ESCALAN
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -20,8 +21,8 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto, tema = responder(entrada)
     await update.message.reply_text(texto)
 
-    if tema == "desconocido":
-        print(f"[AVISO] {usuario} preguntó: {entrada}")
+    if tema in TEMAS_QUE_ESCALAN:
+        print(f"[AVISO] {usuario} ({tema}): {entrada}")
 
 
 if __name__ == "__main__":

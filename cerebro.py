@@ -2,16 +2,46 @@
 # Responde consultas frecuentes del gimnasio.
 # Devuelve (texto, tema). El tema le sirve al conector para decidir
 # si además hay que avisarle a un humano.
+
 import unicodedata
+import difflib
 
 MENU = '''Te puedo ayudar con:
 1 - Horarios
 2 - Precios y planes
 3 - Ubicación
 4 - Métodos de pago
+5 - Hablar con el coach
 
 Escribe el número o pregúntame directamente.'''
- 
+
+# Temas donde hay que avisarle a un humano.
+TEMAS_QUE_ESCALAN = ("desconocido", "humano")
+
+# Palabras clave de UNA sola palabra, para tolerar errores de tipeo.
+# Van sin tildes y sin ñ, porque el mensaje llega normalizado.
+CLAVES = {
+    "horario": "horarios",
+    "horarios": "horarios",
+    "precio": "precios",
+    "precios": "precios",
+    "plan": "precios",
+    "planes": "precios",
+    "cuesta": "precios",
+    "valor": "precios",
+    "ubicacion": "ubicacion",
+    "direccion": "ubicacion",
+    "pago": "pagos",
+    "pagos": "pagos",
+    "pagar": "pagos",
+    "efectivo": "pagos",
+    "tarjeta": "pagos",
+    "transferencia": "pagos",
+    "debito": "pagos",
+    "credito": "pagos",
+}
+
+
 def normalizar(texto):
     """Pasa a minúsculas, quita espacios sobrantes y elimina tildes."""
     texto = texto.strip().lower()
@@ -19,14 +49,39 @@ def normalizar(texto):
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
     return texto
 
+
+def detectar_por_parecido(mensaje):
+    """Busca palabras mal escritas que se parezcan a una palabra clave.
+
+    Devuelve el tema, o None si ninguna palabra se parece lo suficiente.
+    """
+    for palabra in mensaje.split():
+        if len(palabra) < 5:
+            continue
+        parecidas = difflib.get_close_matches(palabra, CLAVES, n=1, cutoff=0.75)
+        if parecidas:
+            return CLAVES[parecidas[0]]
+    return None
+
+
 def detectar_tema(mensaje):
-    """Traduce lo que escribió el usuario a un tema conocido."""
+    """Traduce lo que escribió el usuario a un tema conocido.
+
+    El orden importa: "humano" va primero porque pedir una persona
+    manda sobre cualquier otro tema que aparezca en el mensaje.
+    """
     mensaje = normalizar(mensaje)
-    
+
     if mensaje in ("0", "menu", "hola", "ayuda"):
         return "menu"
 
-    elif mensaje == "1" or "horario" in mensaje or "que dias se entrena" in mensaje:
+    elif (mensaje == "5" or "humano" in mensaje or "persona" in mensaje
+          or "coach" in mensaje or "hablar con" in mensaje
+          or "contacto" in mensaje):
+        return "humano"
+
+    elif (mensaje == "1" or "horario" in mensaje
+          or "que dias se entrena" in mensaje or "a que hora" in mensaje):
         return "horarios"
 
     elif (mensaje == "2" or "precio" in mensaje or "plan" in mensaje
@@ -43,8 +98,12 @@ def detectar_tema(mensaje):
           or "credito" in mensaje):
         return "pagos"
 
-    else:
-        return "desconocido"
+    # Última red: tolera errores de tipeo.
+    tema = detectar_por_parecido(mensaje)
+    if tema:
+        return tema
+
+    return "desconocido"
 
 
 def responder(mensaje):
@@ -52,7 +111,7 @@ def responder(mensaje):
     tema = detectar_tema(mensaje)
 
     if tema == "menu":
-        texto = "¡Hola! Somos AlfaStrong, Soy tu Asistente Virtual.\n\n" + MENU
+        texto = "¡Hola! Somos AlfaStrong, soy tu asistente virtual.\n\n" + MENU
 
     elif tema == "horarios":
         texto = '''Atendemos de lunes a domingo:
@@ -81,6 +140,10 @@ Villa Nonguén'''
 - Tarjeta de crédito
 - Transferencia'''
 
+    elif tema == "humano":
+        texto = ("Le avisé al coach que quieres hablar con él. "
+                 "Te va a responder por acá apenas pueda.")
+
     else:
         texto = ("No tengo esa información, pero le avisé al equipo "
                  "y te responderán apenas puedan.\n\n" + MENU)
@@ -103,5 +166,5 @@ if __name__ == "__main__":
         texto, tema = responder(entrada)
         print("Bot:", texto)
 
-        if tema == "desconocido":
-            print(f"\n[AVISO AL COACH] Consulta sin respuesta: {entrada}")
+        if tema in TEMAS_QUE_ESCALAN:
+            print(f"\n[AVISO AL COACH] {tema}: {entrada}")
