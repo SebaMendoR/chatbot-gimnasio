@@ -2,19 +2,27 @@
 # Responde consultas frecuentes del gimnasio.
 # Devuelve (texto, tema). El tema le sirve al conector para decidir
 # si además hay que avisarle a un humano.
+import unicodedata
 
 MENU = '''Te puedo ayudar con:
 1 - Horarios
 2 - Precios y planes
 3 - Ubicación
+4 - Métodos de pago
 
 Escribe el número o pregúntame directamente.'''
  
+def normalizar(texto):
+    """Pasa a minúsculas, quita espacios sobrantes y elimina tildes."""
+    texto = texto.strip().lower()
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return texto
 
 def detectar_tema(mensaje):
     """Traduce lo que escribió el usuario a un tema conocido."""
-    mensaje = mensaje.strip().lower()
-
+    mensaje = normalizar(mensaje)
+    
     if mensaje in ("0", "menu", "hola", "ayuda"):
         return "menu"
 
@@ -22,12 +30,18 @@ def detectar_tema(mensaje):
         return "horarios"
 
     elif (mensaje == "2" or "precio" in mensaje or "plan" in mensaje
-          or "cuesta" in mensaje or "cuánto vale" in mensaje):
+          or "cuesta" in mensaje or "cuanto vale" in mensaje):
         return "precios"
 
     elif (mensaje == "3" or "ubicacion" in mensaje or "direccion" in mensaje
           or "donde queda" in mensaje):
         return "ubicacion"
+
+    elif (mensaje == "4" or "pago" in mensaje or "pagar" in mensaje
+          or "efectivo" in mensaje or "tarjeta" in mensaje
+          or "transferencia" in mensaje or "debito" in mensaje
+          or "credito" in mensaje):
+        return "pagos"
 
     else:
         return "desconocido"
@@ -38,7 +52,7 @@ def responder(mensaje):
     tema = detectar_tema(mensaje)
 
     if tema == "menu":
-        texto = "¡Hola! Bienvenido al gimnasio.\n\n" + MENU
+        texto = "¡Hola! Somos AlfaStrong, Soy tu Asistente Virtual.\n\n" + MENU
 
     elif tema == "horarios":
         texto = '''Atendemos de lunes a domingo:
@@ -59,6 +73,13 @@ Domingos: 10:00 a 14:00'''
         texto = '''Estamos ubicados en:
 Independencia 87 (ex Manios)
 Villa Nonguén'''
+
+    elif tema == "pagos":
+        texto = '''Puedes pagar con:
+- Efectivo
+- Tarjeta de débito
+- Tarjeta de crédito
+- Transferencia'''
 
     else:
         texto = ("No tengo esa información, pero le avisé al equipo "
